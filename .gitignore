@@ -56,5 +56,10 @@ logs/
 # Local IDE launch settings may contain machine paths
 .vscode/launch.json
 # Персональные инструкции и локальная блокировка навыков агента
-/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/pydantic/
+!/.agents/skills/pydantic-ai-harness/
+!/.agents/skills/building-pydantic-ai-agents/
 /skills-lock.json

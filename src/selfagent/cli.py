@@ -22,7 +22,10 @@ def main() -> None:
     parser.add_argument(
         "--continuous",
         action="store_true",
-        help="Повторять циклы до отказа кандидата или исчерпания дневного бюджета",
+        help=(
+            "Повторять циклы до исчерпания бюджета; после сбоя допускается "
+            "одна целевая попытка восстановления"
+        ),
     )
     parser.add_argument(
         "--budget", action="store_true", help="Показать расходы за сегодня"

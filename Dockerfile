@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pyproject.toml README.md ./
+COPY .agents/skills ./.agents/skills
 COPY src ./src
 COPY tests ./tests
 RUN pip install --no-cache-dir '.[dev]'
