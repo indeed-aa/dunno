@@ -1,0 +1,9 @@
+services:
+  selfagent:
+    build: .
+    image: selfagent:dev
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    working_dir: /app

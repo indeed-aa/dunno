@@ -1,0 +1,60 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения и пакеты
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Секреты и локальная конфигурация
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Логи и временные данные
+logs/
+*.log
+.tmp/
+tmp/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# Docker и локальные данные
+.docker/
+.pydantic-ai-harness/
+
+# ОС
+.DS_Store
+Thumbs.db
+Desktop.ini
+# SelfAgent settings, secrets and local state
+.env
+.env.*
+!.env.example
+.selfagent/
+logs/
+# Local IDE launch settings may contain machine paths
+.vscode/launch.json
+# Персональные инструкции и локальная блокировка навыков агента
+/.agents/
+/skills-lock.json
