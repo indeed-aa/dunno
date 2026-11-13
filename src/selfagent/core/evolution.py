@@ -118,7 +118,7 @@ class EvolutionCycle:
             decision, cost, _ = await self.team.run(
                 self.team.reviewer,
                 f"План:\n{plan.model_dump_json()}\n"
-                f"Контекст исходников и тестов для ревью:\n{self._snapshot()}\n"
+                f"Исходный контекст репозитория до внесения кандидата:\n{snapshot}\n"
                 f"Diff кандидата:\n{diff[:30000]}",
                 self._budget(),
             )
