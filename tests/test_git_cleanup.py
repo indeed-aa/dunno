@@ -27,6 +27,8 @@ def test_discard_candidate_removes_intent_to_add_files(tmp_path):
     repository = GitRepository(tmp_path, "main", Path("~/.ssh/dunno-deploy"))
     branch = "selfagent/test-cleanup"
     repository.create_candidate(branch)
+    tracked_file = tmp_path / "src" / "tracked.py"
+    tracked_file.write_text("value = 2\n", encoding="utf-8")
     candidate_file = tmp_path / "tests" / "new_test.py"
     candidate_file.write_text("def test_new():\n    assert True\n", encoding="utf-8")
     _git(tmp_path, "add", "--intent-to-add", "--", "tests")
@@ -34,5 +36,6 @@ def test_discard_candidate_removes_intent_to_add_files(tmp_path):
     repository.discard_candidate(branch)
 
     assert not candidate_file.exists()
+    assert tracked_file.read_text(encoding="utf-8") == "value = 1\n"
     assert repository.run("status", "--porcelain") == ""
     assert repository.run("branch", "--list", branch) == ""
