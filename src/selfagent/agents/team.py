@@ -2,6 +2,7 @@
 
 from pydantic_ai import Agent
 from pydantic_ai.capabilities import NativeTool
+from pydantic_ai.messages import NativeToolCallPart, NativeToolReturnPart
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from pydantic_ai.native_tools import WebSearchTool
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -138,6 +139,18 @@ class AgentTeam:
                 ):
                     self.log.info(
                         "Инструмент агента «{}» вернул результат.", agent.name
+                    )
+                elif isinstance(part, NativeToolCallPart):
+                    self.log.info(
+                        "Агент «{}» вызвал встроенный инструмент «{}».",
+                        agent.name,
+                        part.tool_name,
+                    )
+                elif isinstance(part, NativeToolReturnPart):
+                    self.log.info(
+                        "Встроенный инструмент «{}» вернул результат агенту «{}».",
+                        part.tool_name,
+                        agent.name,
                     )
                 elif "Search" in type(part).__name__:
                     self.log.info(
