@@ -93,10 +93,10 @@ class EvolutionCycle:
         patch, cost = await self.team.run(
             self.team.coder,
             f"План: {plan.model_dump_json()}\nСодержимое репозитория:\n{snapshot}",
-            self._budget(),
+            self._budget(Decimal("0.03")),
         )
         if cost is not None:
-            self.budget.record(Decimal(cost))
+            self.budget.record(Decimal(cost) + Decimal("0.03"))
 
         branch_slug = re.sub(r"[^a-z0-9-]+", "-", plan.summary.lower())[:32].strip("-")
         branch_slug = branch_slug or "improvement"
