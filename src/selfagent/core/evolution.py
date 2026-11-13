@@ -88,10 +88,10 @@ class EvolutionCycle:
         self._verify_candidate_git_state()
         snapshot = self._snapshot()
         plan, cost = await self.team.run(
-            self.team.planner, snapshot, self._budget(Decimal("0.01"))
+            self.team.planner, snapshot, self._budget(Decimal("0.03"))
         )
         if cost is not None:
-            self.budget.record(Decimal(cost) + Decimal("0.01"))
+            self.budget.record(Decimal(cost) + Decimal("0.03"))
         self.log.info("План улучшения: {}", plan.summary)
 
         patch, cost = await self.team.run(
