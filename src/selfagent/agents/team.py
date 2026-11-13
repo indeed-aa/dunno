@@ -22,6 +22,7 @@ class AgentTeam:
     def __init__(self, settings: Settings) -> None:
         model_name = settings.model_name.split(":", maxsplit=1)[-1]
         self._api_key = settings.api_key
+        self._max_output_tokens = settings.max_output_tokens
         self._web_search_call_cost = settings.web_search_call_cost_usd
         provider = OpenAIProvider(api_key=settings.api_key)
         model = OpenAIResponsesModel(model_name, provider=provider)
@@ -108,7 +109,7 @@ class AgentTeam:
                 prompt,
                 usage_limits=budget,
                 model_settings={
-                    "max_tokens": 2048,
+                    "max_tokens": self._max_output_tokens,
                     "openai_reasoning_effort": "none",
                 },
             )
