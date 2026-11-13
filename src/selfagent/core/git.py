@@ -1,8 +1,8 @@
 """Работа с кандидатными ветками Git."""
 
-import subprocess
 import os
 import shlex
+import subprocess
 from pathlib import Path
 
 from selfagent.logging import Logging
@@ -36,6 +36,25 @@ class GitRepository:
             raise RuntimeError(f"Git завершился с ошибкой: {result.stderr.strip()}")
         return result.stdout.strip()
 
+    def has_staged_changes(self) -> bool:
+        """Явно определить наличие изменений в индексе Git."""
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=120,
+            check=False,
+        )
+        if result.returncode == 0:
+            return False
+        if result.returncode == 1:
+            return True
+        raise RuntimeError(
+            f"Не удалось проверить индекс Git: {result.stderr.strip()}"
+        )
+
     def create_candidate(self, name: str) -> None:
         """Создать новую ветку от основной ветки."""
         self.run("switch", self.main_branch)
@@ -60,12 +79,8 @@ class GitRepository:
     def commit_candidate(self, message: str) -> None:
         """Зафиксировать только уже выбранные изменения."""
         self.run("add", "--", "src", "README.md", "pyproject.toml")
-        if self.run("diff", "--cached", "--quiet", check=False) == "":
-            state = subprocess.run(
-                ["git", "diff", "--cached", "--quiet"], cwd=self.root, check=False
-            )
-            if state.returncode == 0:
-                raise RuntimeError("Кандидат не содержит изменений для коммита.")
+        if not self.has_staged_changes():
+            raise RuntimeError("Кандидат не содержит изменений для коммита.")
         self.run("commit", "-m", message)
 
     def merge_candidate(self, branch: str) -> None:
