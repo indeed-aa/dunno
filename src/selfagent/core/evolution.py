@@ -138,7 +138,11 @@ class EvolutionCycle:
                 == 0
             ):
                 raise RuntimeError("Кандидат не содержит индексируемых изменений.")
-            description = " ".join(plan.summary.split())[:72]
+            description = " ".join(plan.summary.split())
+            if len(description) > 61:
+                description = (
+                    description[:61].rsplit(" ", maxsplit=1)[0] or description[:61]
+                )
             self.git.run("commit", "-m", f"Улучшение: {description}")
             self.git.merge_candidate(branch)
             if self.settings.git_push_enabled:

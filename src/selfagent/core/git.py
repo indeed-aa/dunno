@@ -51,9 +51,7 @@ class GitRepository:
             return False
         if result.returncode == 1:
             return True
-        raise RuntimeError(
-            f"Не удалось проверить индекс Git: {result.stderr.strip()}"
-        )
+        raise RuntimeError(f"Не удалось проверить индекс Git: {result.stderr.strip()}")
 
     def create_candidate(self, name: str) -> None:
         """Создать новую ветку от основной ветки."""
