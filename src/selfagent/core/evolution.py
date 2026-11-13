@@ -33,7 +33,7 @@ class EvolutionCycle:
 
     def _snapshot(self) -> str:
         paths = self.git.run(
-            "ls-files", "src", "README.md", "pyproject.toml"
+            "ls-files", "src", "tests", "README.md", "pyproject.toml"
         ).splitlines()
         chunks: list[str] = []
         for name in paths:
@@ -83,20 +83,20 @@ class EvolutionCycle:
         """Выполнить один полный цикл; вернуть True при успешном слиянии."""
         self._verify_candidate_git_state()
         snapshot = self._snapshot()
-        plan, cost = await self.team.run(
+        plan, cost, _ = await self.team.run(
             self.team.planner, snapshot, self._budget(Decimal("0.03"))
         )
         if cost is not None:
-            self.budget.record(Decimal(cost) + Decimal("0.03"))
+            self.budget.record(Decimal(cost))
         self.log.info("План улучшения: {}", plan.summary)
 
-        patch, cost = await self.team.run(
+        patch, cost, _ = await self.team.run(
             self.team.coder,
             f"План: {plan.model_dump_json()}\nСодержимое репозитория:\n{snapshot}",
             self._budget(Decimal("0.03")),
         )
         if cost is not None:
-            self.budget.record(Decimal(cost) + Decimal("0.03"))
+            self.budget.record(Decimal(cost))
 
         branch_slug = re.sub(r"[^a-z0-9-]+", "-", plan.summary.lower())[:32].strip("-")
         branch_slug = branch_slug or "improvement"
@@ -115,9 +115,11 @@ class EvolutionCycle:
             diff = self._tracked_changes()
             if not diff:
                 raise RuntimeError("Кандидат не создал diff для проверяемых файлов.")
-            decision, cost = await self.team.run(
+            decision, cost, _ = await self.team.run(
                 self.team.reviewer,
-                f"План:\n{plan.model_dump_json()}\nDiff кандидата:\n{diff[:30000]}",
+                f"План:\n{plan.model_dump_json()}\n"
+                f"Контекст исходников и тестов для ревью:\n{self._snapshot()}\n"
+                f"Diff кандидата:\n{diff[:30000]}",
                 self._budget(),
             )
             if cost is not None:

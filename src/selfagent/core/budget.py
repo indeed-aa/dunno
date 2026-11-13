@@ -57,4 +57,4 @@ class BudgetLedger:
                 "INSERT INTO usage(day, cost, created_at) VALUES (?, ?, ?)",
                 (date.today().isoformat(), str(cost), datetime.now(UTC).isoformat()),
             )
-        self.log.info("Учтены расходы на модель: ${:.6f}", cost)
+        self.log.info("Учтены расходы на этап агентов: ${:.6f}", cost)

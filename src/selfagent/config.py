@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = Field(alias="OPENAI_API_KEY")
     model_name: str = "openai:gpt-6-luna"
     daily_budget_usd: Decimal = Field(default=Decimal("1.00"), gt=0)
+    web_search_call_cost_usd: Decimal = Field(default=Decimal("0.01"), ge=0)
     log_level: str = "INFO"
     log_retention_days: int = Field(default=30, ge=1)
     git_main_branch: str = "main"
