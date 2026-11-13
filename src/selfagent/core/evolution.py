@@ -31,6 +31,8 @@ class EvolutionCycle:
         self.runner = CandidateRunner(settings)
         self.log = Logging.for_class(type(self))
         self._recovery_instruction: str | None = None
+        self._recovery_attempts = 0
+        self._terminal_failure = False
 
     def _snapshot(self) -> str:
         paths = self.git.run(
@@ -47,7 +49,7 @@ class EvolutionCycle:
     def _budget(self, reserve: Decimal = Decimal("0")) -> UsageLimits:
         remaining = self.budget.ensure_budget() - reserve
         if remaining <= 0:
-            raise RuntimeError("Недостаточно остатка бюджета для следующего этапа.")
+            raise BudgetExceeded("Остатка дневного бюджета недостаточно для этапа.")
         return UsageLimits(cost_limit=float(remaining), request_limit=3)
 
     def _tracked_changes(self) -> str:
@@ -82,6 +84,7 @@ class EvolutionCycle:
 
     async def run_once(self) -> bool:
         """Выполнить один полный цикл; вернуть True при успешном слиянии."""
+        self._terminal_failure = False
         self._verify_candidate_git_state()
         snapshot = self._snapshot()
         recovery_instruction = self._recovery_instruction
@@ -200,7 +203,14 @@ class EvolutionCycle:
             if isinstance(error, BudgetExceeded):
                 raise
             self._recovery_instruction = await self._analyze_failure(
-                stage, error, snapshot, plan, patch, diff
+                stage,
+                error,
+                snapshot,
+                plan,
+                patch,
+                diff,
+                recovery_instruction,
+                self._recovery_attempts + 1,
             )
             return False
 
@@ -212,6 +222,8 @@ class EvolutionCycle:
         plan: object,
         patch: object,
         diff: str,
+        previous_recovery_instruction: str | None = None,
+        recovery_attempt: int = 1,
     ) -> str | None:
         """Запросить разбор сбоя и принять только ограниченные настройки повтора."""
         detail = str(error).replace(self.settings.api_key, "[КЛЮЧ СКРЫТ]")
@@ -228,11 +240,15 @@ class EvolutionCycle:
             self.log.warning(
                 "Анализатор не вызван: ошибка авторизации требует внешнего исправления."
             )
+            self._terminal_failure = True
             return None
 
         context = (
             f"Этап: {stage}\nТип ошибки: {type(error).__name__}\n"
             f"Текущий лимит ответа агента: {self.settings.max_output_tokens} токенов\n"
+            f"Номер попытки исправления этой идеи: {recovery_attempt}\n"
+            f"Предыдущая рекомендация по исправлению:\n"
+            f"{previous_recovery_instruction or 'Это первая попытка.'}\n"
             f"Подробности: {detail[:6000]}\n"
             f"План: {getattr(plan, 'model_dump_json', lambda: 'не сформирован')()}\n"
             f"Объяснение разработчика: {getattr(patch, 'explanation', 'нет')}\n"
@@ -249,10 +265,13 @@ class EvolutionCycle:
             self.log.warning(
                 "Анализатор не запущен: остатка дневного бюджета недостаточно."
             )
-            return None
+            raise
         except Exception:
             self.log.exception("Не удалось получить разбор неудачной итерации.")
-            return None
+            if isinstance(error, AgentExecutionError):
+                self._terminal_failure = True
+                return None
+            return self._new_idea_instruction(error, plan)
 
         token_limit_error = isinstance(error, AgentExecutionError) and (
             "token limit" in error.detail.casefold()
@@ -273,37 +292,70 @@ class EvolutionCycle:
             else:
                 self.log.warning(
                     "Лимит ответа уже достиг предела 32768 токенов; "
-                    "автоматический повтор с тем же лимитом не запускается."
+                    "текущая идея будет пропущена в пользу более простой."
                 )
-                return None
+                return self._new_idea_instruction(error, plan)
 
         if analysis.retry_recommended and analysis.recovery_instruction.strip():
             return analysis.recovery_instruction
-        return None
+        return self._new_idea_instruction(error, plan, analysis.diagnosis)
+
+    @staticmethod
+    def _new_idea_instruction(
+        error: Exception, plan: object, diagnosis: str | None = None
+    ) -> str:
+        """Подготовить переход к другой идее, если повтор текущего подхода бесполезен."""
+        summary = getattr(plan, "summary", "неудачная идея")
+        reason = diagnosis or str(error)
+        return (
+            f"Откажись от идеи «{summary}»: она не прошла проверку. Причина: "
+            f"{reason[:2000]}. Не повторяй тот же подход; выбери другую небольшую, "
+            "независимую и проверяемую идею. Не ослабляй тесты, ревью или ограничения."
+        )
 
     async def run_loop(self, max_cycles: int | None) -> None:
-        """Выполнять циклы с одной целевой попыткой восстановления после сбоя."""
+        """Продолжать улучшения до лимита циклов или дневного бюджета."""
         index = 0
-        recovery_attempted = False
         while max_cycles is None or index < max_cycles:
+            if self._recovery_instruction:
+                self.log.info(
+                    "Продолжаю попытку восстановления №{}.", self._recovery_attempts
+                )
             self.log.info("Начало цикла {}.", index + 1)
+            try:
+                success = await self.run_once()
+            except BudgetExceeded as error:
+                self.log.info(
+                    "Бюджет исчерпан для нового этапа; остановка штатная: {}", error
+                )
+                return
+            except Exception as error:
+                self.log.error(
+                    "Цикл безопасно остановлен из-за внешней ошибки типа {}: {}",
+                    type(error).__name__,
+                    error,
+                )
+                return
             index += 1
-            success = await self.run_once()
             if not success:
-                if self._recovery_instruction and not recovery_attempted:
-                    if max_cycles is not None and index >= max_cycles:
-                        self.log.info(
-                            "Анализатор подготовил восстановление, но достигнут "
-                            "лимит циклов запуска."
-                        )
-                        break
-                    recovery_attempted = True
+                if self._terminal_failure:
+                    self.log.warning(
+                        "Продолжение невозможно без исправления внешней ошибки."
+                    )
+                    return
+                self._recovery_attempts += 1
+                if not self._recovery_instruction:
+                    self._recovery_instruction = self._new_idea_instruction(
+                        RuntimeError("Анализатор не выдал рекомендацию."), None
+                    )
+                if max_cycles is None or index < max_cycles:
                     self.log.info(
-                        "Анализатор подготовил целевое восстановление; "
-                        "запускаю одну повторную итерацию."
+                        "Итерация не прошла; запускаю следующую попытку "
+                        "с учётом вывода анализатора."
                     )
                     await asyncio.sleep(2)
                     continue
                 break
-            recovery_attempted = False
+            self._recovery_instruction = None
+            self._recovery_attempts = 0
             await asyncio.sleep(2)

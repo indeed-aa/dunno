@@ -4,6 +4,7 @@ import pytest
 
 from selfagent.agents.team import AgentExecutionError
 from selfagent.config import Settings
+from selfagent.core.budget import BudgetExceeded
 from selfagent.core.evolution import EvolutionCycle
 from selfagent.models import FailureAnalysis
 
@@ -86,7 +87,9 @@ async def test_failure_analyst_cannot_raise_limit_for_unrelated_error(
 
 
 @pytest.mark.asyncio
-async def test_run_loop_allows_only_one_recovery_attempt(tmp_path, monkeypatch):
+async def test_run_loop_continues_after_failures_until_budget_is_exhausted(
+    tmp_path, monkeypatch
+):
     settings = Settings(
         _env_file=None,
         OPENAI_API_KEY="sk-test",
@@ -99,6 +102,8 @@ async def test_run_loop_allows_only_one_recovery_attempt(tmp_path, monkeypatch):
     async def failed_cycle():
         nonlocal attempts
         attempts += 1
+        if attempts == 4:
+            raise BudgetExceeded("Дневной лимит расходов исчерпан.")
         cycle._recovery_instruction = "Исправить причину отказа."
         return False
 
@@ -110,7 +115,7 @@ async def test_run_loop_allows_only_one_recovery_attempt(tmp_path, monkeypatch):
 
     await cycle.run_loop(max_cycles=None)
 
-    assert attempts == 2
+    assert attempts == 4
 
 
 @pytest.mark.asyncio
