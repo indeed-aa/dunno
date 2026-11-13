@@ -43,8 +43,11 @@ class EvolutionCycle:
                 chunks.append(f"\n### {name}\n{content[:10000]}")
         return "".join(chunks)[:45000]
 
-    def _budget(self) -> UsageLimits:
-        return UsageLimits(cost_limit=float(self.budget.ensure_budget()))
+    def _budget(self, reserve: Decimal = Decimal("0")) -> UsageLimits:
+        remaining = self.budget.ensure_budget() - reserve
+        if remaining <= 0:
+            raise RuntimeError("Недостаточно остатка бюджета для следующего этапа.")
+        return UsageLimits(cost_limit=float(remaining), request_limit=3)
 
     def _tracked_changes(self) -> str:
         return self.git.run("diff", "--", "src", "tests", "README.md", "pyproject.toml")
@@ -84,9 +87,11 @@ class EvolutionCycle:
         """Выполнить один полный цикл; вернуть True при успешном слиянии."""
         self._verify_candidate_git_state()
         snapshot = self._snapshot()
-        plan, cost = await self.team.run(self.team.planner, snapshot, self._budget())
+        plan, cost = await self.team.run(
+            self.team.planner, snapshot, self._budget(Decimal("0.01"))
+        )
         if cost is not None:
-            self.budget.record(Decimal(cost))
+            self.budget.record(Decimal(cost) + Decimal("0.01"))
         self.log.info("План улучшения: {}", plan.summary)
 
         patch, cost = await self.team.run(

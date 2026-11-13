@@ -47,5 +47,8 @@ def main() -> None:
         print(str(error), file=sys.stderr)
         raise SystemExit(2) from error
     except Exception as error:
-        print(f"Ошибка запуска: {error}", file=sys.stderr)
+        print(
+            f"Ошибка запуска ({type(error).__name__}); подробности смотрите в журнале.",
+            file=sys.stderr,
+        )
         raise SystemExit(1) from error

@@ -1,7 +1,7 @@
 """Настройка журналирования по дате и имени класса."""
 
-from datetime import date
 from pathlib import Path
+import sys
 
 from loguru import logger
 
@@ -18,7 +18,7 @@ class Logging:
             return
         logger.remove()
         logger.add(
-            sink=lambda message: print(message, end=""),
+            sink=sys.stdout,
             level=level.upper(),
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | {extra[component]} | {message}",
         )
