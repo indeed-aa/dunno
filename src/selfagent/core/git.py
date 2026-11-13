@@ -42,8 +42,10 @@ class GitRepository:
         self.run("switch", "-c", name)
 
     def discard_candidate(self, branch: str) -> None:
-        """Удалить неудачную ветку и вернуться в основную."""
+        """Удалить неудачную ветку и оставленные ею файлы-кандидаты."""
         self.run("switch", self.main_branch)
+        self.run("reset", "--", "src", "tests")
+        self.run("clean", "-fd", "--", "src", "tests")
         self.run("branch", "-D", branch)
 
     def commit_candidate(self, message: str) -> None:

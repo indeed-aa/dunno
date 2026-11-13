@@ -2,7 +2,7 @@
 
 from pydantic_ai import Agent
 from pydantic_ai.capabilities import NativeTool
-from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIResponsesModel
 from pydantic_ai.native_tools import WebSearchTool
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai_harness import SubAgent, SubAgents
@@ -22,10 +22,9 @@ class AgentTeam:
         model_name = settings.model_name.split(":", maxsplit=1)[-1]
         self._api_key = settings.api_key
         provider = OpenAIProvider(api_key=settings.api_key)
-        model = OpenAIChatModel(model_name, provider=provider)
-        research_model = OpenAIResponsesModel(model_name, provider=provider)
+        model = OpenAIResponsesModel(model_name, provider=provider)
         self.planner = Agent(
-            research_model,
+            model,
             name="планировщик",
             output_type=ImprovementPlan,
             capabilities=[NativeTool(WebSearchTool(search_context_size="low"))],
