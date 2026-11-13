@@ -20,6 +20,7 @@ class AgentTeam:
 
     def __init__(self, settings: Settings) -> None:
         model_name = settings.model_name.split(":", maxsplit=1)[-1]
+        self._api_key = settings.api_key
         provider = OpenAIProvider(api_key=settings.api_key)
         model = OpenAIChatModel(model_name, provider=provider)
         research_model = OpenAIResponsesModel(model_name, provider=provider)
@@ -102,10 +103,12 @@ class AgentTeam:
                 model_settings={"max_tokens": 2048},
             )
         except Exception as error:
+            safe_message = str(error).replace(self._api_key, "[КЛЮЧ СКРЫТ]")
             self.log.error(
-                "Агент «{}» завершился с ошибкой типа {}.",
+                "Агент «{}» завершился с ошибкой типа {}: {}",
                 agent.name,
                 type(error).__name__,
+                safe_message,
             )
             raise RuntimeError(
                 f"Ошибка агента «{agent.name}»: {type(error).__name__}."
