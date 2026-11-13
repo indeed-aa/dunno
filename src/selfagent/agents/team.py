@@ -99,7 +99,10 @@ class AgentTeam:
             result = await agent.run(
                 prompt,
                 usage_limits=budget,
-                model_settings={"max_tokens": 2048},
+                model_settings={
+                    "max_tokens": 2048,
+                    "openai_reasoning_effort": "none",
+                },
             )
         except Exception as error:
             safe_message = str(error).replace(self._api_key, "[КЛЮЧ СКРЫТ]")
@@ -112,7 +115,7 @@ class AgentTeam:
             raise RuntimeError(
                 f"Ошибка агента «{agent.name}»: {type(error).__name__}."
             ) from None
-        usage = result.usage()
+        usage = result.usage
         estimated_cost = (
             Decimal(usage.input_tokens) * Decimal("0.11")
             + Decimal(usage.output_tokens) * Decimal("0.55")
