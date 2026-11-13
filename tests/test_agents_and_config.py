@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from selfagent.agents.team import AgentTeam
 from selfagent.config import Settings
+from selfagent.models import CandidatePatch
 
 
 def test_settings_reject_example_api_key():
@@ -18,3 +19,14 @@ def test_agent_team_builds_all_roles_without_network():
         "разработчик",
         "ревьюер",
     ]
+
+
+def test_candidate_patch_rejects_path_aliases():
+    with pytest.raises(ValidationError, match="уникальными"):
+        CandidatePatch(
+            changes=[
+                {"path": "src/Module.py", "content": "первый вариант"},
+                {"path": "src/./module.py", "content": "второй вариант"},
+            ],
+            explanation="Проверка неоднозначных путей.",
+        )

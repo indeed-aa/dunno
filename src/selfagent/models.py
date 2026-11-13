@@ -1,8 +1,9 @@
 """Типы Pydantic для результатов работы агентов."""
 
 from typing import Annotated
+from pathlib import PurePosixPath
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 
 class ImprovementPlan(BaseModel):
@@ -28,6 +29,16 @@ class CandidatePatch(BaseModel):
 
     changes: list[FileChange] = Field(min_length=1, max_length=8)
     explanation: str
+
+    @model_validator(mode="after")
+    def require_unique_paths(self) -> "CandidatePatch":
+        """Отклонить пути, которые совпадают после нормализации."""
+        paths = [
+            PurePosixPath(change.path).as_posix().casefold() for change in self.changes
+        ]
+        if len(paths) != len(set(paths)):
+            raise ValueError("Пути файлов в патче должны быть уникальными.")
+        return self
 
 
 class ReviewDecision(BaseModel):
