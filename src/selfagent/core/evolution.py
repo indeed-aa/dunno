@@ -55,18 +55,14 @@ class EvolutionCycle:
     def _write_patch(self, patch: object) -> None:
         for change in patch.changes:
             relative = PurePosixPath(change.path)
-            if relative.is_absolute() or ".." in relative.parts:
+            if not relative.parts or relative.is_absolute() or ".." in relative.parts:
                 raise ValueError(f"Недопустимый путь изменения: {change.path}")
             if not (relative.parts[0] in {"src", "tests"}):
                 raise ValueError(f"Изменение этого файла запрещено: {change.path}")
-            tracked = self.git.run("ls-files", "--", change.path)
-            if tracked != change.path:
-                raise ValueError(
-                    f"Можно изменять только уже отслеживаемый файл: {change.path}"
-                )
             target = (self.settings.repository_root / Path(*relative.parts)).resolve()
-            if self.settings.repository_root.resolve() not in target.parents:
-                raise ValueError("Изменение выходит за пределы каталога проекта.")
+            allowed_root = self.settings.repository_root.resolve() / relative.parts[0]
+            if allowed_root.resolve() not in target.parents:
+                raise ValueError("Изменение выходит за пределы разрешённого каталога.")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(change.content, encoding="utf-8")
 
@@ -102,22 +98,20 @@ class EvolutionCycle:
         if cost is not None:
             self.budget.record(Decimal(cost))
 
-        branch = "selfagent/" + re.sub(r"[^a-z0-9-]+", "-", plan.summary.lower())[
-            :32
-        ].strip("-")
-        branch += (
-            "-"
-            + subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=self.settings.repository_root,
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
-        )
+        branch_slug = re.sub(r"[^a-z0-9-]+", "-", plan.summary.lower())[:32].strip("-")
+        branch_slug = branch_slug or "improvement"
+        commit_id = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=self.settings.repository_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        branch = f"selfagent/{branch_slug}-{commit_id}"
         self.git.create_candidate(branch)
         try:
             self._write_patch(patch)
+            self.git.run("add", "--intent-to-add", "--", "src", "tests")
             diff = self._tracked_changes()
             if not diff:
                 raise RuntimeError("Кандидат не создал diff для проверяемых файлов.")
@@ -144,7 +138,8 @@ class EvolutionCycle:
                 == 0
             ):
                 raise RuntimeError("Кандидат не содержит индексируемых изменений.")
-            self.git.run("commit", "-m", f"Улучшение: {plan.summary[:60]}")
+            description = " ".join(plan.summary.split())[:72]
+            self.git.run("commit", "-m", f"Улучшение: {description}")
             self.git.merge_candidate(branch)
             if self.settings.git_push_enabled:
                 try:
@@ -158,8 +153,12 @@ class EvolutionCycle:
                         "Кандидат слит локально, но отправка в удалённый репозиторий не удалась."
                     )
             return True
-        except Exception:
-            self.log.exception("Кандидат не прошёл цикл проверки и не будет принят.")
+        except Exception as error:
+            self.log.error(
+                "Кандидат отклонён ({}) и не будет принят: {}",
+                type(error).__name__,
+                error,
+            )
             self.git.discard_candidate(branch)
             return False
 

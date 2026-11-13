@@ -1,12 +1,17 @@
 """Типы Pydantic для результатов работы агентов."""
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class ImprovementPlan(BaseModel):
     """Краткий план одного небольшого улучшения."""
 
-    summary: str = Field(description="Краткое описание улучшения на русском")
+    summary: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=8, max_length=160),
+    ] = Field(description="Краткое описание улучшения на русском")
     rationale: str = Field(description="Обоснование на русском")
     files_to_read: list[str] = Field(default_factory=list)
 

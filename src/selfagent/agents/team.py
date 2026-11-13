@@ -124,13 +124,19 @@ class AgentTeam:
         self.log.info("Этап {}: ${:.6f}", agent.name, cost)
         for message in result.new_messages():
             for part in message.parts:
-                if type(part).__name__ == "ToolCallPart":
+                if (
+                    type(part).__name__ == "ToolCallPart"
+                    and part.tool_name != "final_result"
+                ):
                     self.log.info(
                         "Агент «{}» вызвал инструмент «{}».",
                         agent.name,
                         part.tool_name,
                     )
-                elif type(part).__name__ == "ToolReturnPart":
+                elif (
+                    type(part).__name__ == "ToolReturnPart"
+                    and part.tool_name != "final_result"
+                ):
                     self.log.info(
                         "Инструмент агента «{}» вернул результат.", agent.name
                     )
